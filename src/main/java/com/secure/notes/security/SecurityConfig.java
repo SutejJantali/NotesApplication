@@ -16,9 +16,12 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.provisioning.JdbcUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 import com.secure.notes.models.Role;
 import com.secure.notes.models.User;
@@ -39,7 +42,13 @@ public class SecurityConfig {
 //				.requestMatchers("/admin").denyAll()
 				.anyRequest().authenticated());
 		http.csrf(csrf->csrf.disable());
-//		http.formLogin(withDefaults());
+		
+		//*********** Creating Custom Filters*********//
+//		http.addFilterBefore(new CustomLoggingFilter(), UsernamePasswordAuthenticationFilter.class);
+//		http.addFilterAfter(new RequestValidationFilter(), CustomLoggingFilter.class);
+		
+		//****************************************//
+		//		http.formLogin(withDefaults());
 //		http.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
 		http.httpBasic(withDefaults());
 		return http.build();
@@ -71,8 +80,13 @@ public class SecurityConfig {
 //	    return manager;
 //	}
 	
+	@Bean
+	public PasswordEncoder passwordEncoder() {
+		return new BCryptPasswordEncoder();
+	}
+	
     @Bean
-    public CommandLineRunner initData(RoleRepository roleRepository, UserRepository userRepository) {
+    public CommandLineRunner initData(RoleRepository roleRepository, UserRepository userRepository, PasswordEncoder passwordEncoder) {
         return args -> {
             Role userRole = roleRepository.findByRoleName(AppRole.ROLE_USER)
                     .orElseGet(() -> roleRepository.save(new Role(AppRole.ROLE_USER)));
@@ -81,7 +95,7 @@ public class SecurityConfig {
                     .orElseGet(() -> roleRepository.save(new Role(AppRole.ROLE_ADMIN)));
 
             if (!userRepository.existsByUserName("user1")) {
-                User user1 = new User("user1", "user1@example.com", "{noop}password1");
+                User user1 = new User("user1", "user1@example.com", passwordEncoder.encode("password1"));
                 user1.setAccountNonLocked(false);
                 user1.setAccountNonExpired(true);
                 user1.setCredentialsNonExpired(true);
@@ -95,7 +109,7 @@ public class SecurityConfig {
             }
 
             if (!userRepository.existsByUserName("admin")) {
-                User admin = new User("admin", "admin@example.com", "{noop}adminPass");
+                User admin = new User("admin", "admin@example.com", passwordEncoder.encode("adminPass"));
                 admin.setAccountNonLocked(true);
                 admin.setAccountNonExpired(true);
                 admin.setCredentialsNonExpired(true);
